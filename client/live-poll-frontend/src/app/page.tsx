@@ -1,0 +1,248 @@
+'use client';
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { io, Socket } from 'socket.io-client';
+
+interface Room {
+  code: string;
+  creator: string;
+  question: string;
+  options: string[];
+  votes: Record<string, number>;
+  startTime: number;
+  duration: number;
+}
+
+export default function Home(): React.JSX.Element {
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [username, setUsername] = useState<string>('');
+  const [roomCode, setRoomCode] = useState<string>('');
+  const [room, setRoom] = useState<Room | null>(null);
+  const [vote, setVote] = useState<string>('');
+  const [timeRemaining, setTimeRemaining] = useState<number>(60);
+  const [error, setError] = useState<string>('');
+
+  // New state for poll creation
+  const [pollQuestion, setPollQuestion] = useState<string>('');
+  const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
+
+  useEffect(() => {
+    // Ensure this only runs on client side
+    if (typeof window !== 'undefined') {
+      console.log('Initializing socket connection...');
+      const newSocket = io('http://localhost:3001', {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        withCredentials: true
+      });
+
+      newSocket.on('connect', () => {
+        console.log('Socket connected successfully');
+        setSocket(newSocket);
+      });
+
+      newSocket.on('connect_error', (error) => {
+        console.error('Socket connection error:', error);
+        setError(`Connection failed: ${error.message}`);
+      });
+
+      newSocket.on('disconnect', (reason) => {
+        console.warn('Socket disconnected:', reason);
+        if (reason === 'io server disconnect') {
+          // the disconnection was initiated by the server, reconnect manually
+          newSocket.connect();
+        }
+      });
+
+      newSocket.on('room-created', (createdRoom: Room) => {
+        console.log('Room created:', createdRoom);
+        setRoom(createdRoom);
+        setError('');
+        setVote('');
+      });
+
+      newSocket.on('room-join-error', (errorMessage: string) => {
+        console.error('Room join error:', errorMessage);
+        setError(errorMessage);
+      });
+
+      newSocket.on('vote-update', (updatedVotes: Record<string, number>) => {
+        if (room) {
+          const updatedRoom = { ...room, votes: updatedVotes };
+          setRoom(updatedRoom);
+        }
+      });
+
+      newSocket.on('timer-update', (remainingTime: number) => {
+        setTimeRemaining(remainingTime);
+      });
+
+      newSocket.on('voting-ended', () => {
+        setTimeRemaining(0);
+      });
+
+      return () => {
+        newSocket.disconnect();
+      };
+    }
+  }, []);
+
+  const createRoom = useCallback(() => {
+    if (!socket || !username || !pollQuestion) {
+      setError('Please provide a username and question');
+      return;
+    }
+
+    const validOptions = pollOptions.filter(opt => opt.trim() !== '');
+    if (validOptions.length < 2) {
+      setError('Please provide at least two options');
+      return;
+    }
+
+    socket.emit('create-room', username, pollQuestion, validOptions);
+  }, [socket, username, pollQuestion, pollOptions]);
+
+  const joinRoom = useCallback(() => {
+    if (!socket || !roomCode || !username) {
+      setError('Please provide a room code and username');
+      return;
+    }
+
+    socket.emit('join-room', roomCode, username);
+  }, [socket, roomCode, username]);
+
+  const submitVote = useCallback((selectedVote: string) => {
+    if (!room || !socket || timeRemaining === 0 || vote) return;
+
+    socket.emit('vote', room.code, username, selectedVote);
+    setVote(selectedVote);
+  }, [room, socket, timeRemaining, vote, username]);
+
+  const handleOptionChange = useCallback((index: number, value: string) => {
+    const newOptions = [...pollOptions];
+    newOptions[index] = value;
+    setPollOptions(newOptions);
+
+    if (index === newOptions.length - 1 && value.trim() !== '') {
+      setPollOptions([...newOptions, '']);
+    }
+  }, [pollOptions]);
+
+  const calculateVotePercentage = useCallback((option: string): number => {
+    if (!room || Object.keys(room.votes).length === 0) return 0;
+    const totalVotes = Object.values(room.votes).reduce((a, b) => a + b, 0);
+    return totalVotes > 0 ? Math.round((room.votes[option] || 0) / totalVotes * 100) : 0;
+  }, [room]);
+
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center p-6">
+      <div className="w-full max-w-md bg-white shadow-md rounded-lg p-6">
+        {error && <p className="text-red-500 text-center mb-4">{error}</p>}
+        
+        {!room ? (
+          <div className="space-y-4">
+            <input
+              type="text"
+              placeholder="Your Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full p-2 border rounded"
+            />
+            <input
+              type="text"
+              placeholder="Poll Question"
+              value={pollQuestion}
+              onChange={(e) => setPollQuestion(e.target.value)}
+              className="w-full p-2 border rounded"
+            />
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold">Poll Options</h3>
+              {pollOptions.map((option, index) => (
+                <input
+                  key={index}
+                  type="text"
+                  placeholder={`Option ${index + 1}`}
+                  value={option}
+                  onChange={(e) => handleOptionChange(index, e.target.value)}
+                  className="w-full p-2 border rounded"
+                />
+              ))}
+            </div>
+            <div className="flex space-x-4">
+              <button
+                onClick={createRoom}
+                disabled={!username || !pollQuestion || pollOptions.filter(opt => opt.trim() !== '').length < 2}
+                className="flex-1 p-2 bg-blue-500 text-white rounded disabled:opacity-50"
+              >
+                Create Room
+              </button>
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  placeholder="Room Code"
+                  value={roomCode}
+                  onChange={(e) => setRoomCode(e.target.value)}
+                  className="p-2 border rounded"
+                />
+                <button
+                  onClick={joinRoom}
+                  disabled={!roomCode || !username}
+                  className="p-2 bg-green-500 text-white rounded disabled:opacity-50"
+                >
+                  Join Room
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : room ? (
+          <div>
+            <div className="mb-4 text-center">
+              <h2 className="text-xl font-bold">{room.question}</h2>
+              <p className="text-gray-600">Room Code: {room.code}</p>
+              <p className="text-gray-600">Time Remaining: {timeRemaining} seconds</p>
+            </div>
+
+            <div className="space-y-4">
+              {room.options.map((option) => (
+                <div 
+                  key={option}
+                  className={`
+                    relative w-full py-3 px-4 rounded 
+                    ${vote === option ? 'bg-blue-100 border-2 border-blue-500' : 'bg-gray-100'}
+                    ${timeRemaining === 0 ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-gray-200'}
+                  `}
+                  onClick={() => timeRemaining > 0 && !vote && submitVote(option)}
+                >
+                  <div className="flex justify-between items-center">
+                    <span>{option}</span>
+                    <span>{calculateVotePercentage(option)}%</span>
+                  </div>
+                  <div 
+                    className="absolute bottom-0 left-0 h-1 bg-blue-500" 
+                    style={{ 
+                      width: `${calculateVotePercentage(option)}%`,
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {vote && (
+              <p className="mt-4 text-center text-green-600">
+                You voted for {vote}
+              </p>
+            )}
+
+            {timeRemaining === 0 && (
+              <p className="mt-4 text-center text-red-600">
+                Voting has ended
+              </p>
+            )}
+          </div>
+        ) : null}
+      </div>
+    </main>
+  );
+}
