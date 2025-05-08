@@ -5,49 +5,24 @@ const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
 
 const app = express();
-// Allow all origins in development, or specific origins in production
+// In production, allow all origins for now to fix CORS issues
 const allowedOrigins = process.env.NODE_ENV === 'production'
-    ? [process.env.FRONTEND_URL, 'https://live-poll-frontend.vercel.app']
+    ? ['*'] // Allow all origins in production temporarily
     : ['http://localhost:3000', 'http://localhost:3002', 'http://localhost:3003', 'http://localhost:3004', 'http://127.0.0.1:3000', 'http://127.0.0.1:3002', 'http://127.0.0.1:3003', 'http://127.0.0.1:3004'];
 
+// Simplified CORS configuration for Vercel deployment
 app.use(cors({
-    origin: function(origin, callback) {
-        // Allow requests with no origin (like mobile apps, curl, etc)
-        if (!origin) return callback(null, true);
-        
-        if (allowedOrigins.indexOf(origin) === -1) {
-            console.log(`Origin ${origin} not allowed by CORS`);
-            // Allow all origins in development
-            if (process.env.NODE_ENV !== 'production') {
-                return callback(null, true);
-            }
-            return callback(new Error('Not allowed by CORS'), false);
-        }
-        return callback(null, true);
-    },
-    methods: ['GET', 'POST'],
-    credentials: true
+    origin: '*', // Allow all origins temporarily to fix deployment issues
+    methods: ['GET', 'POST', 'OPTIONS'],
+    credentials: false // Set to false for '*' origin
 }));
 
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: function(origin, callback) {
-            // Allow requests with no origin (like mobile apps, curl, etc)
-            if (!origin) return callback(null, true);
-            
-            if (allowedOrigins.indexOf(origin) === -1) {
-                console.log(`Socket origin ${origin} not allowed by CORS`);
-                // Allow all origins in development
-                if (process.env.NODE_ENV !== 'production') {
-                    return callback(null, true);
-                }
-                return callback(new Error('Not allowed by CORS'), false);
-            }
-            return callback(null, true);
-        },
-        methods: ['GET', 'POST'],
-        credentials: true
+        origin: '*', // Allow all origins temporarily
+        methods: ['GET', 'POST', 'OPTIONS'],
+        credentials: false // Set to false for '*' origin
     },
     // Serverless-friendly settings
     transports: ['polling'],
