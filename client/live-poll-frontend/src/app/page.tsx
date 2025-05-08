@@ -30,99 +30,117 @@ export default function Home(): React.JSX.Element {
     // Ensure this only runs on client side
     if (typeof window !== 'undefined') {
       console.log('Initializing socket connection...');
-      // Use environment variable for socket URL to support deployment
-      const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
-      console.log(`Connecting to socket server at: ${socketUrl}`);
-      
-      const newSocket = io(socketUrl, {
-        path: '/socket.io',
-        transports: ['polling'], // Use only polling for serverless compatibility
-        reconnection: true,
-        reconnectionAttempts: 10,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        timeout: 20000,
-        autoConnect: true,
-        forceNew: true,
-        withCredentials: false // Changed to false to avoid CORS issues
-      });
-      
-      // Add more detailed connection logging
-      console.log('Socket connection options:', {
-        url: socketUrl,
-        transports: ['polling'],
-        reconnection: true,
-        forceNew: true
-      });
-
-      newSocket.on('connect', () => {
-        console.log('Socket connected successfully');
-        setSocket(newSocket);
-      });
-
-      newSocket.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
-        setError(`Connection failed: ${error.message}`);
-      });
-
-      newSocket.on('disconnect', (reason) => {
-        console.warn('Socket disconnected:', reason);
-        if (reason === 'io server disconnect') {
-          // the disconnection was initiated by the server, reconnect manually
-          newSocket.connect();
-        }
-      });
-
-      newSocket.on('room-created', (createdRoom: Room) => {
-        console.log('Room created:', createdRoom);
-        setRoom(createdRoom);
-        setError('');
-        setVote('');
-      });
-
-      newSocket.on('room-join-error', (errorMessage: string) => {
-        console.error('Room join error:', errorMessage);
-        setError(errorMessage);
-      });
-
-      newSocket.on('vote-update', (updatedVotes: Record<string, number>) => {
-        console.log('Vote update received:', updatedVotes);
-        if (room) {
-          console.log('Current room state before update:', room);
-          
-          // Only update if the votes have actually changed
-          const currentVotesJSON = JSON.stringify(room.votes);
-          const updatedVotesJSON = JSON.stringify(updatedVotes);
-          
-          if (currentVotesJSON !== updatedVotesJSON) {
-            console.log('Votes have changed, updating state');
-            // Create a completely new room object to ensure React detects the change
-            const updatedRoom = {
-              ...room,
-              votes: { ...updatedVotes } // Create a new votes object
-            };
-            console.log('Updated room state:', updatedRoom);
-            // Force a state update with the new room object
-            setRoom(updatedRoom);
-          } else {
-            console.log('Votes unchanged, no update needed');
+      try {
+        // Use environment variable for socket URL to support deployment
+        const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
+        console.log(`Connecting to socket server at: ${socketUrl}`);
+        
+        // Create a simple socket with minimal options for maximum compatibility
+        const socketInstance = io(socketUrl, {
+          path: '/socket.io',
+          transports: ['polling'],
+          reconnection: true,
+          reconnectionAttempts: 5,
+          reconnectionDelay: 1000,
+          timeout: 10000,
+          autoConnect: true,
+          forceNew: true,
+          withCredentials: false,
+          extraHeaders: {
+            'Access-Control-Allow-Origin': '*'
           }
-        } else {
-          console.warn('Received vote update but room is null');
-        }
-      });
+        });
+        
+        // Add more detailed connection logging
+        console.log('Socket connection options:', {
+          url: socketUrl,
+          transports: ['polling'],
+          reconnection: true
+        });
+        
+        // Log all socket events for debugging
+        socketInstance.onAny((event: string, ...args: any[]) => {
+          console.log(`Socket event: ${event}`, args);
+        });
+        
+        // Set up event listeners
+        socketInstance.on('connect', () => {
+          console.log('Socket connected successfully');
+          setSocket(socketInstance);
+        });
 
-      newSocket.on('timer-update', (remainingTime: number) => {
-        setTimeRemaining(remainingTime);
-      });
+        socketInstance.on('connect_error', (error: Error) => {
+          console.error('Socket connection error:', error);
+          setError(`Connection failed: ${error.message}`);
+        });
 
-      newSocket.on('voting-ended', () => {
-        setTimeRemaining(0);
-      });
+        socketInstance.on('disconnect', (reason: string) => {
+          console.warn('Socket disconnected:', reason);
+          if (reason === 'io server disconnect') {
+            // the disconnection was initiated by the server, reconnect manually
+            socketInstance.connect();
+          }
+        });
 
-      return () => {
-        newSocket.disconnect();
-      };
+        socketInstance.on('room-created', (createdRoom: Room) => {
+          console.log('Room created:', createdRoom);
+          setRoom(createdRoom);
+          setError('');
+          setVote('');
+        });
+
+        socketInstance.on('room-join-error', (errorMessage: string) => {
+          console.error('Room join error:', errorMessage);
+          setError(errorMessage);
+        });
+        
+        socketInstance.on('vote-update', (updatedVotes: Record<string, number>) => {
+          console.log('Vote update received:', updatedVotes);
+          if (room) {
+            console.log('Current room state before update:', room);
+            
+            // Only update if the votes have actually changed
+            const currentVotesJSON = JSON.stringify(room.votes);
+            const updatedVotesJSON = JSON.stringify(updatedVotes);
+            
+            if (currentVotesJSON !== updatedVotesJSON) {
+              console.log('Votes have changed, updating state');
+              // Create a completely new room object to ensure React detects the change
+              const updatedRoom = {
+                ...room,
+                votes: { ...updatedVotes } // Create a new votes object
+              };
+              console.log('Updated room state:', updatedRoom);
+              // Force a state update with the new room object
+              setRoom(updatedRoom);
+            } else {
+              console.log('Votes unchanged, no update needed');
+            }
+          } else {
+            console.warn('Received vote update but room is null');
+          }
+        });
+
+        socketInstance.on('timer-update', (remainingTime: number) => {
+          setTimeRemaining(remainingTime);
+        });
+
+        socketInstance.on('voting-ended', () => {
+          setTimeRemaining(0);
+        });
+
+        // Set the socket in state
+        setSocket(socketInstance);
+        
+        // Clean up function
+        return () => {
+          socketInstance.disconnect();
+        };
+      } catch (error: any) {
+        console.error('Error initializing socket:', error);
+        setError(`Failed to initialize socket: ${error.message}`);
+      }
+      return undefined;
     }
   }, []);
 
