@@ -5,16 +5,16 @@ const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
 
 const app = express();
-// In production, allow all origins for now to fix CORS issues
+
 const allowedOrigins = process.env.NODE_ENV === 'production'
-    ? ['*'] // Allow all origins in production temporarily
+    ? ['*'] 
     : ['http://localhost:3000', 'http://localhost:3002', 'http://localhost:3003', 'http://localhost:3004', 'http://127.0.0.1:3000', 'http://127.0.0.1:3002', 'http://127.0.0.1:3003', 'http://127.0.0.1:3004'];
 
-// Simplified CORS configuration for Vercel deployment
+
 app.use(cors({
-    origin: '*', // Allow all origins temporarily to fix deployment issues
+    origin: '*', 
     methods: ['GET', 'POST', 'OPTIONS'],
-    credentials: false // Set to false for '*' origin
+    credentials: false 
 }));
 
 const server = http.createServer(app);
@@ -22,9 +22,9 @@ const io = new Server(server, {
     cors: {
         origin: '*', // Allow all origins temporarily
         methods: ['GET', 'POST', 'OPTIONS'],
-        credentials: false // Set to false for '*' origin
+        credentials: false 
     },
-    // Serverless-friendly settings
+    
     transports: ['polling'],
     allowEIO3: true,
     pingTimeout: 30000,
@@ -32,7 +32,7 @@ const io = new Server(server, {
     cookie: false
 });
 
-// In-memory storage for poll rooms
+
 const pollRooms = new Map();
 const roomTimers = new Map();
 
@@ -69,16 +69,16 @@ io.on('connection', (socket) => {
         socket.emit('room-created', room);
         console.log(`Room ${roomCode} created by ${username} with question: ${question}`);
 
-        // Start timer for the room
+        
         const timer = setInterval(() => {
             const currentTime = Date.now();
             const timeElapsed = currentTime - room.startTime;
             const timeRemaining = Math.max(0, Math.floor((room.duration - timeElapsed) / 1000));
 
-            // Broadcast remaining time to all users in the room
+            
             io.to(roomCode).emit('timer-update', timeRemaining);
 
-            // Stop timer when time is up
+            
             if (timeRemaining === 0) {
                 clearInterval(timer);
                 roomTimers.delete(roomCode);
@@ -86,7 +86,7 @@ io.on('connection', (socket) => {
             }
         }, 1000);
 
-        // Store the timer for potential cleanup
+        
         roomTimers.set(roomCode, timer);
     });
 
@@ -122,7 +122,7 @@ io.on('connection', (socket) => {
             console.log(`Room found: ${roomCode}`);
             console.log('Current votes:', room.votes);
             
-            // Check if voting is still open
+            
             const currentTime = Date.now();
             const timeElapsed = currentTime - room.startTime;
             console.log(`Time elapsed: ${timeElapsed}ms, Duration: ${room.duration}ms`);
@@ -133,28 +133,44 @@ io.on('connection', (socket) => {
                 return;
             }
 
-            // Check if user has already voted
+            
             if (room.voters.has(username)) {
                 console.log(`User ${username} has already voted`);
                 socket.emit('error', 'You have already voted');
                 return;
             }
 
-            // Validate vote option
+            
             if (!room.options.includes(vote)) {
                 console.log(`Invalid vote option: ${vote}`);
                 socket.emit('error', 'Invalid vote option');
                 return;
             }
 
-            // Record the vote
-            room.votes[vote]++;
-            room.voters.add(username);
-            console.log('Updated votes:', room.votes);
+            
 
-            // Broadcast updated vote counts to all users in the room
-            console.log('Broadcasting vote update to room');
-            io.to(roomCode).emit('vote-update', room.votes);
+            room.votes[vote] = (typeof room.votes[vote] === 'number' ? room.votes[vote] : 0) + 1;
+            room.voters.add(username);
+            
+
+            console.log('Updated votes:', room.votes);
+            
+
+            const totalVotes = Object.values(room.votes).reduce((sum, val) => {
+                return sum + (typeof val === 'number' ? val : parseInt(String(val), 10) || 0);
+            }, 0);
+            console.log(`Total votes in room ${roomCode}: ${totalVotes}`);
+            
+
+            const normalizedVotes = {};
+            room.options.forEach(option => {
+                normalizedVotes[option] = typeof room.votes[option] === 'number' ? 
+                    room.votes[option] : parseInt(String(room.votes[option]), 10) || 0;
+            });
+            
+
+            console.log('Broadcasting normalized votes to room:', normalizedVotes);
+            io.to(roomCode).emit('vote-update', normalizedVotes);
             console.log(`${username} voted for ${vote} in room ${roomCode}`);
         } else {
             console.error(`Room not found: ${roomCode}`);
@@ -167,7 +183,7 @@ io.on('connection', (socket) => {
     });
 });
 
-// For local development
+
 if (process.env.NODE_ENV !== 'production') {
     const PORT = process.env.PORT || 3001;
     server.listen(PORT, () => {
@@ -175,10 +191,10 @@ if (process.env.NODE_ENV !== 'production') {
     });
 }
 
-// Export for serverless functions
+
 module.exports = server;
 
-// Error handling
+
 server.on('error', (error) => {
     console.error('Server error:', error);
 });
