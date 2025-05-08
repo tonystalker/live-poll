@@ -23,15 +23,5 @@
       "src": "/(.*)",
       "dest": "/api/socket.js"
     }
-  ],
-  "functions": {
-    "api/**/*.js": {
-      "memory": 1024,
-      "maxDuration": 10
-    },
-    "index.js": {
-      "memory": 1024,
-      "maxDuration": 10
-    }
-  }
+  ]
 }
