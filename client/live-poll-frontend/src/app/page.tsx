@@ -30,12 +30,13 @@ export default function Home(): React.JSX.Element {
     // Ensure this only runs on client side
     if (typeof window !== 'undefined') {
       console.log('Initializing socket connection...');
+      // Try to connect to the backend server with more flexible options
       const newSocket = io('http://localhost:3001', {
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
-        withCredentials: true
+        withCredentials: false // Changed to false to avoid CORS issues
       });
 
       newSocket.on('connect', () => {
@@ -69,9 +70,29 @@ export default function Home(): React.JSX.Element {
       });
 
       newSocket.on('vote-update', (updatedVotes: Record<string, number>) => {
+        console.log('Vote update received:', updatedVotes);
         if (room) {
-          const updatedRoom = { ...room, votes: updatedVotes };
-          setRoom(updatedRoom);
+          console.log('Current room state before update:', room);
+          
+          // Only update if the votes have actually changed
+          const currentVotesJSON = JSON.stringify(room.votes);
+          const updatedVotesJSON = JSON.stringify(updatedVotes);
+          
+          if (currentVotesJSON !== updatedVotesJSON) {
+            console.log('Votes have changed, updating state');
+            // Create a completely new room object to ensure React detects the change
+            const updatedRoom = {
+              ...room,
+              votes: { ...updatedVotes } // Create a new votes object
+            };
+            console.log('Updated room state:', updatedRoom);
+            // Force a state update with the new room object
+            setRoom(updatedRoom);
+          } else {
+            console.log('Votes unchanged, no update needed');
+          }
+        } else {
+          console.warn('Received vote update but room is null');
         }
       });
 
@@ -114,8 +135,27 @@ export default function Home(): React.JSX.Element {
   }, [socket, roomCode, username]);
 
   const submitVote = useCallback((selectedVote: string) => {
-    if (!room || !socket || timeRemaining === 0 || vote) return;
+    if (!room || !socket || timeRemaining === 0 || vote) {
+      console.log('Cannot submit vote:', { hasRoom: !!room, hasSocket: !!socket, timeRemaining, hasVoted: !!vote });
+      return;
+    }
 
+    console.log(`Submitting vote for ${selectedVote} in room ${room.code}`);
+    
+    // Update local state immediately to provide instant feedback
+    const updatedVotes = { ...room.votes };
+    updatedVotes[selectedVote] = (updatedVotes[selectedVote] || 0) + 1;
+    
+    // Create a new room object with updated votes
+    const updatedRoom = {
+      ...room,
+      votes: updatedVotes
+    };
+    
+    // Update the room state with the new votes
+    setRoom(updatedRoom);
+    
+    // Send the vote to the server
     socket.emit('vote', room.code, username, selectedVote);
     setVote(selectedVote);
   }, [room, socket, timeRemaining, vote, username]);
@@ -130,17 +170,47 @@ export default function Home(): React.JSX.Element {
     }
   }, [pollOptions]);
 
-  const calculateVotePercentage = useCallback((option: string): number => {
-    if (!room || Object.keys(room.votes).length === 0) return 0;
-    const totalVotes = Object.values(room.votes).reduce((a, b) => a + b, 0);
-    return totalVotes > 0 ? Math.round((room.votes[option] || 0) / totalVotes * 100) : 0;
-  }, [room]);
+  // Remove useCallback to ensure this recalculates on every render with latest room data
+  const calculateVotePercentage = (option: string): number => {
+    if (!room || !room.votes) {
+      console.log('No room or votes available for calculation');
+      return 0;
+    }
+    
+    // Force convert vote values to numbers to ensure proper calculation
+    const voteValues = Object.entries(room.votes).map(([key, value]) => {
+      return [key, typeof value === 'number' ? value : parseInt(String(value), 10) || 0];
+    });
+    
+    // Create a normalized votes object with numeric values
+    const normalizedVotes: Record<string, number> = Object.fromEntries(voteValues);
+    console.log('Normalized votes:', normalizedVotes);
+    
+    // Calculate total votes from the normalized values
+    const totalVotes = Object.values(normalizedVotes).reduce((a: number, b: number) => a + b, 0);
+    console.log(`Total votes: ${totalVotes}`);
+    
+    // Get the votes for this option, ensuring it's a number
+    const optionVotes = normalizedVotes[option] || 0;
+    console.log(`Votes for ${option}: ${optionVotes}`);
+    
+    // Calculate percentage
+    const percentage = totalVotes > 0 ? Math.round((optionVotes / totalVotes) * 100) : 0;
+    console.log(`Percentage for ${option}: ${percentage}%`);
+    
+    return percentage;
+  };
+
+  // Add debug information to help troubleshoot
+  const connectionStatus = socket ? 'Connected' : 'Disconnected';
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-6">
       <div className="w-full max-w-md bg-white shadow-md rounded-lg p-6">
+        <div className="text-sm text-gray-500 mb-2">Socket Status: {connectionStatus}</div>
         {error && <p className="text-red-500 text-center mb-4">{error}</p>}
         
+        {/* Always render the form if there's no room */}
         {!room ? (
           <div className="space-y-4">
             <input
@@ -196,7 +266,7 @@ export default function Home(): React.JSX.Element {
               </div>
             </div>
           </div>
-        ) : room ? (
+        ) : (
           <div>
             <div className="mb-4 text-center">
               <h2 className="text-xl font-bold">{room.question}</h2>
@@ -217,12 +287,16 @@ export default function Home(): React.JSX.Element {
                 >
                   <div className="flex justify-between items-center">
                     <span>{option}</span>
-                    <span>{calculateVotePercentage(option)}%</span>
+                    <span data-testid={`percentage-${option}`} className="font-bold">
+                      {/* Force recalculation on every render */}
+                      {calculateVotePercentage(option)}%
+                    </span>
                   </div>
                   <div 
                     className="absolute bottom-0 left-0 h-1 bg-blue-500" 
                     style={{ 
                       width: `${calculateVotePercentage(option)}%`,
+                      transition: 'width 0.5s ease-in-out' // Add smooth transition
                     }}
                   />
                 </div>
@@ -241,7 +315,7 @@ export default function Home(): React.JSX.Element {
               </p>
             )}
           </div>
-        ) : null}
+        )}
       </div>
     </main>
   );

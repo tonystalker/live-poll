@@ -97,30 +97,40 @@ io.on('connection', (socket) => {
 
     // Handle voting
     socket.on('vote', (roomCode, username, vote) => {
+        console.log(`Vote received - Room: ${roomCode}, User: ${username}, Vote: ${vote}`);
+        
         if (!roomCode || !username || !vote) {
+            console.error('Invalid vote parameters:', { roomCode, username, vote });
             socket.emit('error', 'Invalid vote parameters');
             return;
         }
 
         const room = pollRooms.get(roomCode);
         if (room) {
+            console.log(`Room found: ${roomCode}`);
+            console.log('Current votes:', room.votes);
+            
             // Check if voting is still open
             const currentTime = Date.now();
             const timeElapsed = currentTime - room.startTime;
+            console.log(`Time elapsed: ${timeElapsed}ms, Duration: ${room.duration}ms`);
             
             if (timeElapsed > room.duration) {
+                console.log('Voting has ended');
                 socket.emit('error', 'Voting has ended');
                 return;
             }
 
             // Check if user has already voted
             if (room.voters.has(username)) {
+                console.log(`User ${username} has already voted`);
                 socket.emit('error', 'You have already voted');
                 return;
             }
 
             // Validate vote option
             if (!room.options.includes(vote)) {
+                console.log(`Invalid vote option: ${vote}`);
                 socket.emit('error', 'Invalid vote option');
                 return;
             }
@@ -128,11 +138,14 @@ io.on('connection', (socket) => {
             // Record the vote
             room.votes[vote]++;
             room.voters.add(username);
+            console.log('Updated votes:', room.votes);
 
             // Broadcast updated vote counts to all users in the room
+            console.log('Broadcasting vote update to room');
             io.to(roomCode).emit('vote-update', room.votes);
             console.log(`${username} voted for ${vote} in room ${roomCode}`);
         } else {
+            console.error(`Room not found: ${roomCode}`);
             socket.emit('error', 'Room not found');
         }
     });
