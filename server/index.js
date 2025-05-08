@@ -20,16 +20,20 @@ app.use(cors({
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: '*', // Allow all origins temporarily
+        origin: '*',
         methods: ['GET', 'POST', 'OPTIONS'],
-        credentials: false 
+        credentials: false
     },
-    
     transports: ['polling'],
     allowEIO3: true,
-    pingTimeout: 30000,
-    pingInterval: 25000,
-    cookie: false
+    pingTimeout: 20000,
+    pingInterval: 15000,
+    cookie: false,
+    path: '/socket.io/',
+    serveClient: false,
+    connectTimeout: 45000,
+    upgradeTimeout: 30000,
+    maxHttpBufferSize: 1e8
 });
 
 
@@ -191,8 +195,19 @@ if (process.env.NODE_ENV !== 'production') {
     });
 }
 
-
-module.exports = server;
+// For Vercel serverless deployment, export a function that can handle requests
+module.exports = (req, res) => {
+    // Handle health check endpoint
+    if (req.url === '/api/health') {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() }));
+        return;
+    }
+    
+    // Let the server handle the request
+    return server;
+};
 
 
 server.on('error', (error) => {
