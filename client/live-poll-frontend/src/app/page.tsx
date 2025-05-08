@@ -30,8 +30,11 @@ export default function Home(): React.JSX.Element {
     // Ensure this only runs on client side
     if (typeof window !== 'undefined') {
       console.log('Initializing socket connection...');
-      // Try to connect to the backend server with more flexible options
-      const newSocket = io('http://localhost:3001', {
+      // Use environment variable for socket URL to support deployment
+      const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
+      console.log(`Connecting to socket server at: ${socketUrl}`);
+      
+      const newSocket = io(socketUrl, {
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: 5,
