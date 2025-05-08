@@ -48,7 +48,13 @@ const io = new Server(server, {
         },
         methods: ['GET', 'POST'],
         credentials: true
-    }
+    },
+    // Serverless-friendly settings
+    transports: ['polling'],
+    allowEIO3: true,
+    pingTimeout: 30000,
+    pingInterval: 25000,
+    cookie: false
 });
 
 // In-memory storage for poll rooms

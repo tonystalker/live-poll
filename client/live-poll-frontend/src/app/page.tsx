@@ -36,21 +36,23 @@ export default function Home(): React.JSX.Element {
       
       const newSocket = io(socketUrl, {
         path: '/socket.io',
-        transports: ['websocket', 'polling'],
+        transports: ['polling'], // Use only polling for serverless compatibility
         reconnection: true,
         reconnectionAttempts: 10,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         timeout: 20000,
         autoConnect: true,
+        forceNew: true,
         withCredentials: false // Changed to false to avoid CORS issues
       });
       
       // Add more detailed connection logging
       console.log('Socket connection options:', {
         url: socketUrl,
-        transports: ['websocket', 'polling'],
-        reconnection: true
+        transports: ['polling'],
+        reconnection: true,
+        forceNew: true
       });
 
       newSocket.on('connect', () => {
