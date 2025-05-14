@@ -1,7 +1,7 @@
 [build]
-  base = "client/live-poll-frontend"
-  publish = ".next"
-  command = "npm run build"
+  base = "/"
+  publish = "/client/live-poll-frontend/.next"
+  command = "cd client/live-poll-frontend && npm run build"
 
 [build.environment]
   NODE_VERSION = "18"
