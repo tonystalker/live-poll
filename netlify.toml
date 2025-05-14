@@ -1,7 +1,7 @@
 [build]
   base = "/client/live-poll-frontend"
   publish = ".next"
-  command = "npm ci --include=dev && npm run build && cp .next/static/* .next/ -r"
+  command = "npm ci --include=dev && npm run build && npm run export"
 
 [cache]
   directories = ["node_modules"]
