@@ -16,6 +16,7 @@ const nextConfig = {
     ];
   },
   webpack: (config) => {
+    // Remove the resolve and experimental keys
     config.resolve.fallback = {
       fs: false,
       net: false,
