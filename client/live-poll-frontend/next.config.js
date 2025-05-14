@@ -13,17 +13,14 @@ const nextConfig = {
       }
     ];
   },
-  webpack: (config) => {
-    config.resolve.fallback = { fs: false, net: false, tls: false };
-    config.resolve.modules = [...config.resolve.modules, path.resolve(__dirname, 'src')];
-    config.module.rules.push(
-      {
-        test: /\.(css|scss)$/,
-        use: ['style-loader', 'css-loader', 'postcss-loader'],
-      }
-    );
-    return config;
+  experimental: {
+    appDir: true
   },
+  resolve: {
+    fallback: { fs: false, net: false, tls: false }
+  },
+  resolveModules: [path.resolve(__dirname, 'src')],
+
   images: {
     unoptimized: true,
   },
