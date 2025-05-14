@@ -133,6 +133,11 @@ io.on("connection", (socket) => {
   });
 });
 
+// Add health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'healthy' });
+});
+
 module.exports = {
   httpServer,
   io,
@@ -143,18 +148,6 @@ module.exports = {
   }
 };
 
-module.exports = (req, res) => {
-  if (req.url === "/api/health") {
-    res.statusCode = 200;
-    res.setHeader("Content-Type", "application/json");
-    res.end(
-      JSON.stringify({ status: "ok", timestamp: new Date().toISOString() })
-    );
-  } else {
-    server.emit("request", req, res);
-  }
-};
-
-server.on("error", (error) => {
+httpServer.on("error", (error) => {
   console.error("Server error:", error);
 });
