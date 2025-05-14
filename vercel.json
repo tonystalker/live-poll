@@ -1,16 +1,27 @@
 {
   "version": 2,
-  "public": true,
-  "buildCommand": "cd client/live-poll-frontend && npm install && npm run build",
-  "outputDirectory": "client/live-poll-frontend/.next",
-  "rewrites": [
+  "builds": [
     {
-      "source": "/api/:path*",
-      "destination": "/server/api/:path*"
+      "src": "client/live-poll-frontend/next.config.js",
+      "use": "@vercel/next"
     },
     {
-      "source": "/socket.io/:path*",
-      "destination": "/server/api/socket"
+      "src": "server/index.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/server/api/$1"
+    },
+    {
+      "src": "/socket.io/(.*)",
+      "dest": "/server/api/socket"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/client/live-poll-frontend/$1"
     }
   ],
   "env": {
