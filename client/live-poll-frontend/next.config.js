@@ -13,14 +13,11 @@ const nextConfig = {
       }
     ];
   },
-  experimental: {
-    appDir: true
+  webpack: (config) => {
+    config.resolve.fallback = { fs: false, net: false, tls: false };
+    config.resolve.modules = [...config.resolve.modules, path.resolve(__dirname, 'src')];
+    return config;
   },
-  resolve: {
-    fallback: { fs: false, net: false, tls: false }
-  },
-  resolveModules: [path.resolve(__dirname, 'src')],
-
   images: {
     unoptimized: true,
   },
