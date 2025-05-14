@@ -128,16 +128,20 @@ io.on("connection", (socket) => {
     io.to(roomCode).emit("vote-update", room.votes);
   });
 
-  socket.on("disconnect", () => {
-    console.log("Client disconnected");
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
   });
 });
 
-if (process.env.NODE_ENV !== "production") {
-  server.listen(PORT, () => {
-    console.log(`Server running locally on port ${PORT}`);
-  });
-}
+module.exports = {
+  httpServer,
+  io,
+  start: () => {
+    httpServer.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  }
+};
 
 module.exports = (req, res) => {
   if (req.url === "/api/health") {

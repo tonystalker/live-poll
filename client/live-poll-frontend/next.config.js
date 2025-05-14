@@ -8,7 +8,7 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: process.env.BACKEND_URL || 'https://api.netlify.com/functions/server/:path*'
+        destination: process.env.BACKEND_URL || 'http://localhost:3001/:path*'
       }
     ];
   },
@@ -21,8 +21,7 @@ const nextConfig = {
   },
   experimental: {
     appDir: true
-  },
-  output: 'standalone'
+  }
 };
 
 module.exports = nextConfig;
