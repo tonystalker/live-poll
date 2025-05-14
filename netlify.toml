@@ -1,6 +1,6 @@
 [build]
   base = "client/live-poll-frontend"
-  publish = "dist"
+  publish = ".next"
   command = "npm run build"
 
 [build.environment]
