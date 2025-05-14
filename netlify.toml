@@ -6,6 +6,8 @@
 [build.environment]
   NODE_VERSION = "18"
   NPM_CONFIG_LOGLEVEL = "error"
+  NEXT_PUBLIC_SOCKET_URL = "https://api.netlify.com/functions/server"
+  NODE_ENV = "production"
 
 [functions]
   node_bundler = "esbuild"
