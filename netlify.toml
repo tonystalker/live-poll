@@ -1,7 +1,7 @@
 [build]
-  base = "/"
-  publish = "/client/live-poll-frontend/.next"
-  command = "npx --yes next build"
+  base = "/client/live-poll-frontend"
+  publish = ".next"
+  command = "npm run build"
 
 [build.environment]
   NODE_VERSION = "18"
@@ -11,7 +11,7 @@
   node_bundler = "esbuild"
 
 [functions.server]
-  path = "server/index.js"
+  path = "../server/index.js"
   memory_size = 1024
   timeout = 10
   environment = [

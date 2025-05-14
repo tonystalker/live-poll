@@ -1,1 +1,2 @@
 /    /client/live-poll-frontend    200
+/client/live-poll-frontend/*    /client/live-poll-frontend    200
