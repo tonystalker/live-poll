@@ -1,7 +1,10 @@
 [build]
   base = "/client/live-poll-frontend"
   publish = ".next"
-  command = "npm install && npm run build"
+  command = "npm ci --include=dev && npm run build"
+
+[cache]
+  directories = ["node_modules"]
 
 [build.environment]
   NODE_VERSION = "18"
