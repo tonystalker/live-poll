@@ -24,11 +24,17 @@ export const useSocket = (): UseSocketReturn => {
 
     const initializeSocket = async () => {
       try {
-        const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
-        if (!socketUrl) {
-          throw new Error(
-            "NEXT_PUBLIC_SOCKET_URL environment variable is not set"
+        let socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
+
+        if (!socketUrl && process.env.NODE_ENV === "production") {
+          const protocol =
+            window.location.protocol === "https:" ? "https" : "http";
+          socketUrl = `${protocol}://${window.location.host}`;
+          console.log(
+            `Determined socket URL from window location: ${socketUrl}`
           );
+        } else if (!socketUrl) {
+          socketUrl = "http://localhost:3001";
         }
 
         console.log(`Connecting to socket server at: ${socketUrl}`);
@@ -37,26 +43,27 @@ export const useSocket = (): UseSocketReturn => {
           path: "/socket.io/",
           transports: ["websocket", "polling"],
           reconnection: true,
-          reconnectionAttempts: 10,
+          reconnectionAttempts: 5,
           reconnectionDelay: 1000,
           reconnectionDelayMax: 5000,
           randomizationFactor: 0.5,
-          timeout: 30000,
+          timeout: 20000,
           autoConnect: true,
-          forceNew: true,
-          withCredentials: false,
         });
 
         setSocket(socketInstance);
 
         socketInstance.on("connect", () => {
-          console.log("Socket connected successfully");
+          console.log(
+            "Socket connected successfully with ID:",
+            socketInstance.id
+          );
           setError("");
         });
 
         socketInstance.on("connect_error", (err) => {
-          console.error("Socket connection error:", err);
-          setError("Failed to connect to server. Please try again later.");
+          console.error("Socket connection error:", err.message);
+          setError(`Failed to connect to server: ${err.message}`);
         });
 
         socketInstance.on("disconnect", (reason: string) => {
@@ -138,6 +145,7 @@ export const useSocket = (): UseSocketReturn => {
 
     return () => {
       if (socketInstance) {
+        console.log("Cleaning up socket connection");
         socketInstance.disconnect();
         socketInstance.offAny();
         socketInstance.removeAllListeners();

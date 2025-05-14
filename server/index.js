@@ -7,8 +7,12 @@ const { v4: uuidv4 } = require("uuid");
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+const server = http.createServer(app);
+
 const devOrigin = "http://localhost:3000";
-const prodOrigin = process.env.VERCEL_URL || "*";
+const prodOrigin = process.env.VERCEL_URL
+  ? [`https://${process.env.VERCEL_URL}`, "https://*.vercel.app"]
+  : "*";
 
 const corsOptions = {
   origin: process.env.NODE_ENV === "production" ? prodOrigin : devOrigin,
@@ -17,30 +21,17 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-const server = http.createServer(app);
-
 const io = new Server(server, {
-  cors: corsOptions,
+  cors: {
+    origin: process.env.NODE_ENV === "production" ? prodOrigin : devOrigin,
+    methods: ["GET", "POST", "OPTIONS"],
+    credentials: false,
+  },
   transports: ["websocket", "polling"],
   allowEIO3: true,
   pingTimeout: 20000,
   pingInterval: 15000,
-  cookie: false,
   path: "/socket.io/",
-  serveClient: false,
-  connectTimeout: 45000,
-  upgradeTimeout: 30000,
-  maxHttpBufferSize: 1e8,
-  handlePreflightRequest: (req, res) => {
-    const headers = {
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      "Access-Control-Allow-Origin":
-        process.env.NODE_ENV === "production" ? prodOrigin : devOrigin,
-      "Access-Control-Allow-Credentials": false,
-    };
-    res.writeHead(200, headers);
-    res.end();
-  },
 });
 
 const pollRooms = new Map();
@@ -72,7 +63,7 @@ io.on("connection", (socket) => {
       votes: initialVotes,
       voters: new Set(),
       startTime: Date.now(),
-      duration: 60000, // 60 seconds
+      duration: 60000,
     };
 
     pollRooms.set(roomCode, room);
@@ -128,26 +119,23 @@ io.on("connection", (socket) => {
     io.to(roomCode).emit("vote-update", room.votes);
   });
 
-  socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
+  socket.on("disconnect", () => {
+    console.log("Client disconnected:", socket.id);
   });
 });
 
-// Add health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'healthy' });
+app.get("/api/health", (req, res) => {
+  res.json({ status: "healthy" });
 });
 
-module.exports = {
-  httpServer,
-  io,
-  start: () => {
-    httpServer.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-  }
-};
+module.exports = app;
 
-httpServer.on("error", (error) => {
+if (require.main === module) {
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+server.on("error", (error) => {
   console.error("Server error:", error);
 });
