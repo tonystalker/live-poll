@@ -23,3 +23,8 @@
     "NODE_ENV",
     "PORT"
   ]
+
+[redirects]
+  from = "/*"
+  to = "/index.html"
+  status = 200

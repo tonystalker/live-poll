@@ -16,10 +16,13 @@ const nextConfig = {
     config.resolve.fallback = { fs: false, net: false, tls: false };
     return config;
   },
-  output: 'standalone',
   images: {
     unoptimized: true,
   },
+  experimental: {
+    appDir: true
+  },
+  output: 'standalone'
 };
 
 module.exports = nextConfig;
