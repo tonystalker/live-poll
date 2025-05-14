@@ -14,6 +14,7 @@ const nextConfig = {
   },
   webpack: (config) => {
     config.resolve.fallback = { fs: false, net: false, tls: false };
+    config.resolve.modules = [...config.resolve.modules, path.resolve(__dirname, 'src')];
     return config;
   },
   images: {

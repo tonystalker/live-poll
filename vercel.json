@@ -27,5 +27,10 @@
   "env": {
     "NEXT_PUBLIC_SOCKET_URL": "",
     "NODE_ENV": "production"
+  },
+  "build": {
+    "env": {
+      "NODE_VERSION": "16.x"
+    }
   }
 }
